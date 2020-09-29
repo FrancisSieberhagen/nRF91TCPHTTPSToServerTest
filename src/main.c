@@ -8,6 +8,7 @@
 #include <bsd.h>
 #include <net/socket.h>
 #include <modem/lte_lc.h>
+#include <net/tls_credentials.h>
 
 #include <drivers/gpio.h>
 #include <stdio.h>
@@ -18,25 +19,28 @@
 #include <modem/at_notif.h>
 #include <modem/modem_key_mgmt.h>
 
-
 #include "cJSON.h"
 
-#define LED_PORT	DT_ALIAS_LED0_GPIOS_CONTROLLER
-#define LED1 DT_GPIO_LEDS_LED0_GPIOS_PIN
-#define LED2 DT_GPIO_LEDS_LED1_GPIOS_PIN
-#define LED3 DT_GPIO_LEDS_LED2_GPIOS_PIN
-#define LED4 DT_GPIO_LEDS_LED3_GPIOS_PIN
+#define LED_PORT        DT_GPIO_LABEL(DT_ALIAS(led0), gpios)
+#define LED1	 DT_GPIO_PIN(DT_ALIAS(led0), gpios)
+#define LED2	 DT_GPIO_PIN(DT_ALIAS(led1), gpios)
+#define LED3	 DT_GPIO_PIN(DT_ALIAS(led2), gpios)
+#define LED4	 DT_GPIO_PIN(DT_ALIAS(led3), gpios)
 
 // curl 172.105.18.205:42501
 
 #define HTTP_HEAD   \
     "GET / HTTP/1.1\r\n" \
-    "Host: 172.105.18.205:42501\r\n" \
-    "User-Agent: curl/7.64.1\r\n" \
+    "Host: 139.162.251.115:42512\r\n" \
     "Accept: */*\r\n\r\n"
 
 static int server_socket;
 static struct sockaddr_storage server;
+
+static const char cert[] = {
+    #include "../cert/NRFTestServerRootCA"
+};
+#define TLS_SEC_TAG 42
 
 LOG_MODULE_REGISTER(app, CONFIG_TEST1_LOG_LEVEL);
 
@@ -132,6 +136,8 @@ static void init_modem(void)
     err = at_command(at_lock_csl);
     __ASSERT(err == 0, "ERROR: at_command %d %s\n", err, log_strdup(at_lock_csl));
 
+    err = cert_provision();
+    __ASSERT(err == 0, "ERROR: cert_provision error %s", err);
 
     LOG_INF("Initializing Modem: lte_lc_init_and_connect");
 
@@ -145,6 +151,91 @@ static void init_modem(void)
     __ASSERT(err == 0, "ERROR: edrx %d\n", err);
 
 
+}
+
+/* Provision certificate to modem */
+int cert_provision(void)
+{
+	int err;
+	bool exists;
+	u8_t unused;
+
+	LOG_INF("Check if there is existing certs on modem");
+
+	err = modem_key_mgmt_exists(TLS_SEC_TAG,
+				    MODEM_KEY_MGMT_CRED_TYPE_CA_CHAIN,
+				    &exists, &unused);
+	if (err) {
+		LOG_ERR("Failed to check for certificates err %d\n", err);
+		return err;
+	}
+
+	if (exists) {
+		LOG_INF("Delete existing certs from modem");
+
+		/* For the sake of simplicity we delete what is provisioned
+		 * with our security tag and re provision our certificate.
+		 */
+		err = modem_key_mgmt_delete(TLS_SEC_TAG, MODEM_KEY_MGMT_CRED_TYPE_CA_CHAIN);
+		if (err) {
+			LOG_ERR("Failed to delete existing certificate, err %d\n", err);
+            return err;
+		}
+	}
+
+	LOG_INF("Provisioning certificate\n");
+
+	/*  Provision certificate to the modem */
+	err = modem_key_mgmt_write(TLS_SEC_TAG,
+				   MODEM_KEY_MGMT_CRED_TYPE_CA_CHAIN,
+				   cert, sizeof(cert) - 1);
+	if (err) {
+		LOG_ERR("Failed to provision certificate, err %d\n", err);
+		return err;
+	}
+
+	LOG_INF("Certificate Provisioned\n");
+
+	return 0;
+}
+
+/* Setup TLS options on a given socket */
+int tls_setup(int fd)
+{
+	int err;
+	int verify;
+
+	/* Security tag that we have provisioned the certificate with */
+	const sec_tag_t tls_sec_tag[] = {
+		TLS_SEC_TAG,
+	};
+
+	/* Set up TLS peer verification */
+	enum {
+		NONE = 0,
+		OPTIONAL = 1,
+		REQUIRED = 2,
+	};
+
+	verify = REQUIRED;
+
+	err = setsockopt(fd, SOL_TLS, TLS_PEER_VERIFY, &verify, sizeof(verify));
+	if (err) {
+		LOG_ERR("Failed to setup peer verification, err %d\n", errno);
+		return err;
+	}
+
+	/* Associate the socket with the security tag
+	 * we have provisioned the certificate with.
+	 */
+	err = setsockopt(fd, SOL_TLS, TLS_SEC_TAG_LIST, tls_sec_tag,
+			 sizeof(tls_sec_tag));
+	if (err) {
+		LOG_ERR("Failed to setup TLS sec tag, err %d\n", errno);
+		return err;
+	}
+
+	return 0;
 }
 
 static int tcp_ip_resolve(void)
@@ -187,7 +278,9 @@ int connect_to_server()
 {
     int err;
 
-    server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TLS_1_2);
+    tls_setup(server_socket);
+    
     if (server_socket < 0)
     {
         LOG_ERR("Failed to create CoAP socket: %d.\n", errno);
@@ -460,6 +553,6 @@ void main(void)
         } else {
             close(server_socket);
         }
-        k_sleep(100);
+        k_sleep(K_MSEC(1000));
     }
 }
