@@ -77,9 +77,9 @@ https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/user_guides.html
 
 ### Installing CA cert generated for nRF91ServerTest
 
-Use the contents of this file: https://github.com/FrancisSieberhagen/nRF91ServerTest/blob/master/nrftestserver.cer 
+Use the contents of this file: cert/nrftestserver.cer 
 
-Put it in the https://github.com/FrancisSieberhagen/nRF91TCPHTTPSToServerTest/blob/master/cert/NRFTestServerRootCA file. 
+Put it in the cert/NRFTestServerRootCA file. 
 
 IMPORTANT: Make sure to format it by adding double quotes and newlines before and after each line, i.e.: 
 
