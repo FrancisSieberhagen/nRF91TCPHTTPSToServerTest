@@ -43,6 +43,18 @@ https://github.com/FrancisSieberhagen/nRF91TCPHTTPSToServerTest/commit/685e69267
 ### CLion - A cross-platform IDE for C
     https://devzone.nordicsemi.com/f/nordic-q-a/49730/howto-nrf9160-development-with-clion
 
+### Installation/Setup Guide with NRF Connect Desktop
+
+On Windows installation with NRF Connect Desktop is the easiest route to install everything you need.
+
+https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/gs_assistant.html
+
+Please note, on Mac OS and Linux this is still in Beta, on Windows its stable and working well.
+
+If any issues with your installation or if you want to install the manual way:
+
+https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/gs_installing.html
+
 ### Good place to get started/installed and start learning:
 https://devzone.nordicsemi.com/nordic/nrf-connect-sdk-guides/b/getting-started/posts/nrf-connect-sdk-tutorial
 
