@@ -4,7 +4,7 @@
 
 ### Application Description
     curl Test 
-    # curl --cacert cert/nrftestserver.cer https://139.162.251.115:42512
+    # curl --cacert cert/nrftestserver.cer https://139.162.251.115:42513
     # {"ActionName":"BSDTest","LED1":false,"LED2":true}
 
 
@@ -15,7 +15,7 @@
 ### Test Server 
     # Test Server
     CONFIG_SERVER_HOST="139.162.251.115"
-    CONFIG_SERVER_PORT=42512
+    CONFIG_SERVER_PORT=42513
 
 ### See diff in commit files to illustrate how http via TLS was enabled in code: 
 
